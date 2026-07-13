@@ -1,0 +1,23 @@
+:root {
+  --font-body: 'Inter', 'Roboto', 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Isolation boundary for react-bootstrap sections.
+   Bootstrap's own CSS is prefixed to this class via postcss.config.js,
+   so it only applies inside elements with this className. */
+.bootstrap-scope {
+  isolation: isolate;
+}

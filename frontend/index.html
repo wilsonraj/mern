@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MERN Admin</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      Fixed portal target for react-bootstrap Modals/Tooltips/Overlays.
+      These components render via React portals straight into <body>, which
+      would bypass any in-tree `.bootstrap-scope` wrapper. Keeping this class
+      here ensures Bootstrap's (scoped) CSS still applies to them.
+      See src/utils/bootstrapPortalRoot.js for usage.
+    -->
+    <div id="bootstrap-portal-root" class="bootstrap-scope"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
