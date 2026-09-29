@@ -3,16 +3,16 @@ import mongoose from 'mongoose';
 const connectDB = async () => {
   const mongoUri = process.env.MONGO_URI;
   if (!mongoUri) {
-    console.error('Missing MONGO_URI environment variable. Create a .env file or set MONGO_URI in your environment.');
-    process.exit(1);
+    throw new Error(
+      'Missing MONGO_URI environment variable. Create a .env file or set MONGO_URI in your environment.'
+    );
   }
 
   try {
     const conn = await mongoose.connect(mongoUri);
     console.log(`MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`MongoDB connection error: ${error.message}`);
-    process.exit(1);
+    throw new Error(`MongoDB connection error: ${error.message}`, { cause: error });
   }
 };
 

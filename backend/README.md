@@ -11,11 +11,14 @@ A production-ready Node.js/Express/MongoDB backend boilerplate with:
 ```bash
 cd backend
 npm install
-cp .env.example .env   # then fill in your values
+copy .env.example .env # Windows
+# cp .env.example .env # macOS/Linux
+# then fill in your values
 npm run dev             # starts with nodemon
 ```
 
-Requires a running MongoDB instance (local or Atlas). Set `MONGO_URI` in `.env`.
+Requires a running MongoDB instance (local or Atlas). Copy `.env.example` to `.env`
+and set `MONGO_URI` to your MongoDB connection string before starting the backend.
 
 ## Folder Structure
 
