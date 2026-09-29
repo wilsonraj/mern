@@ -1,15 +1,14 @@
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch } from 'react-redux';
 
+import { showNotification } from '../../app/notificationSlice';
 import MuiFormField from '../../components/form/MuiFormField';
 import { registerSchema } from './registerSchema';
 import { useRegisterMutation } from './authApi';
@@ -18,7 +17,6 @@ import { setCredentials } from './authSlice';
 const RegisterPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [serverError, setServerError] = useState('');
   const [register, { isLoading }] = useRegisterMutation();
 
   const {
@@ -32,15 +30,15 @@ const RegisterPage = () => {
   });
 
   const onSubmit = async (data) => {
-    setServerError('');
-
     try {
       const result = await register(data).unwrap();
       const payload = result?.data ?? result;
-      dispatch(setCredentials({ user: payload, token: payload.token }));
+      dispatch(setCredentials({ user: payload.user, accessToken: payload.accessToken }));
+      dispatch(showNotification({ message: 'Account created successfully.', severity: 'success' }));
       navigate('/products', { replace: true });
     } catch (err) {
-      setServerError(err?.data?.message || 'Registration failed');
+      const message = err?.data?.message || 'Registration failed';
+      dispatch(showNotification({ message, severity: 'error' }));
     }
   };
 
@@ -62,12 +60,6 @@ const RegisterPage = () => {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Register a new account to access the dashboard.
         </Typography>
-
-        {serverError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {serverError}
-          </Alert>
-        )}
 
         <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <MuiFormField name="name" control={control} label="Full name" />

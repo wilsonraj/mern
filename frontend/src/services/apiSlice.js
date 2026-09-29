@@ -1,26 +1,59 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 const baseQuery = fetchBaseQuery({
-  baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  baseUrl,
+  credentials: 'include',
   prepareHeaders: (headers, { getState }) => {
-    const token = getState().auth?.token;
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    const accessToken = getState().auth?.accessToken;
+    if (accessToken) {
+      headers.set('Authorization', `Bearer ${accessToken}`);
     }
     return headers;
   }
 });
 
-/**
- * Wraps the base query to handle 401s globally (e.g. expired token).
- * Extend this if you want automatic logout or token refresh.
- */
-const baseQueryWithAuthHandling = async (args, 
-  api, extraOptions) => {
-  const result = await baseQuery(args, api, extraOptions);
+const refreshBaseQuery = fetchBaseQuery({
+  baseUrl,
+  credentials: 'include'
+});
 
-  if (result.error && result.error.status === 401) {
-    api.dispatch({ type: 'auth/forceLogout' });
+let refreshPromise;
+
+const baseQueryWithAuthHandling = async (args, api, extraOptions) => {
+  let result = await baseQuery(args, api, extraOptions);
+  const url = typeof args === 'string' ? args : args.url;
+  const isAuthEndpoint = ['/users/login', '/users/register', '/users/refresh', '/users/logout']
+    .some((endpoint) => url.endsWith(endpoint));
+
+  if (result.error?.status === 401 && !isAuthEndpoint) {
+    if (!refreshPromise) {
+      refreshPromise = refreshBaseQuery(
+        { url: '/users/refresh', method: 'POST' },
+        api,
+        extraOptions
+      ).finally(() => {
+        refreshPromise = null;
+      });
+    }
+
+    const refreshResult = await refreshPromise;
+    const credentials = refreshResult.data?.data;
+    if (credentials?.accessToken && credentials.user) {
+      api.dispatch({
+        type: 'auth/setCredentials',
+        payload: { user: credentials.user, accessToken: credentials.accessToken }
+      });
+      result = await baseQuery(args, api, extraOptions);
+    } else {
+      if (api.getState().auth?.user) {
+        api.dispatch({
+          type: 'notification/showNotification',
+          payload: { message: 'Your session expired. Please sign in again.', severity: 'warning' }
+        });
+      }
+      api.dispatch({ type: 'auth/forceLogout' });
+    }
   }
 
   return result;

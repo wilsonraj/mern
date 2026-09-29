@@ -18,7 +18,9 @@ npm run dev             # starts with nodemon
 ```
 
 Requires a running MongoDB instance (local or Atlas). Copy `.env.example` to `.env`
-and set `MONGO_URI` to your MongoDB connection string before starting the backend.
+and set `MONGO_URI` to your MongoDB connection string plus distinct, long random
+values for `JWT_SECRET` and `JWT_REFRESH_SECRET`. Set `FRONTEND_URL` to the frontend
+origin when it differs from `http://localhost:3000`.
 
 ## Folder Structure
 
@@ -42,9 +44,11 @@ src/
 ### Auth
 | Method | Endpoint            | Description        |
 |--------|---------------------|---------------------|
-| POST   | /api/users/register | Register new user   |
-| POST   | /api/users/login    | Login, returns JWT  |
-| GET    | /api/users/me        | Get current profile (auth required) |
+| POST   | /api/users/register | Register, returns an access token and sets an HttpOnly refresh cookie |
+| POST   | /api/users/login    | Login, returns an access token and sets an HttpOnly refresh cookie |
+| POST   | /api/users/refresh  | Rotate refresh cookie and return a new access token |
+| POST   | /api/users/logout   | Revoke refresh session and clear its cookie |
+| GET    | /api/users/me       | Get current profile (access token required) |
 
 ### Products (CRUD)
 | Method | Endpoint                    | Description                         |

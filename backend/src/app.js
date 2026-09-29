@@ -1,8 +1,4 @@
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'node:url';
-
-dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
-
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -12,7 +8,10 @@ import { errorHandler, notFound } from './middlewares/error.middleware.js';
 const app = express();
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

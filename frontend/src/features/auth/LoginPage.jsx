@@ -1,15 +1,14 @@
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useDispatch } from 'react-redux';
 
+import { showNotification } from '../../app/notificationSlice';
 import MuiFormField from '../../components/form/MuiFormField';
 import { loginSchema } from './loginSchema';
 import { useLoginMutation } from './authApi';
@@ -19,7 +18,6 @@ const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const [serverError, setServerError] = useState('');
   const [login, { isLoading }] = useLoginMutation();
 
   const {
@@ -33,15 +31,16 @@ const LoginPage = () => {
   });
 
   const onSubmit = async (data) => {
-    setServerError('');
     try {
       const result = await login(data).unwrap();
       const payload = result?.data ?? result;
-      dispatch(setCredentials({ user: payload, token: payload.token }));
+      dispatch(setCredentials({ user: payload.user, accessToken: payload.accessToken }));
+      dispatch(showNotification({ message: 'Signed in successfully.', severity: 'success' }));
       const redirectTo = location.state?.from?.pathname || '/products';
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setServerError(err?.data?.message || 'Invalid email or password');
+      const message = err?.data?.message || 'Invalid email or password';
+      dispatch(showNotification({ message, severity: 'error' }));
     }
   };
 
@@ -63,12 +62,6 @@ const LoginPage = () => {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Enter your credentials to access the dashboard.
         </Typography>
-
-        {serverError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {serverError}
-          </Alert>
-        )}
 
         <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <MuiFormField name="email" control={control} label="Email" type="email" autoFocus />

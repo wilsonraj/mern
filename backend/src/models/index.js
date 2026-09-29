@@ -1,4 +1,5 @@
 import Product from './Product.model.js';
+import RefreshToken from './RefreshToken.model.js';
 import User from './User.model.js';
 
-export { Product, User };
+export { Product, RefreshToken, User };

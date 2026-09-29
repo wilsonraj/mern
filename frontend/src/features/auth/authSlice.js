@@ -1,11 +1,16 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-const storedToken = window.localStorage.getItem('token');
-const storedUser = window.localStorage.getItem('user');
-
 const initialState = {
-  user: storedUser ? JSON.parse(storedUser) : null,
-  token: storedToken || null
+  user: null,
+  accessToken: null,
+  refreshToken: null,
+  ready: false
+};
+
+const clearAuthState = (state) => {
+  state.user = null;
+  state.accessToken = null;
+  state.refreshToken = null;
 };
 
 const authSlice = createSlice({
@@ -13,33 +18,31 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setCredentials: (state, action) => {
-      const { user, token } = action.payload;
+      const { user, accessToken, refreshToken  } = action.payload;
       state.user = user;
-      state.token = token;
-      window.localStorage.setItem('token', token);
-      window.localStorage.setItem('user', JSON.stringify(user));
+      state.accessToken = accessToken;
+      state.refreshToken = refreshToken;
+      state.ready = true;
+    },
+    setAuthReady: (state) => {
+      state.ready = true;
     },
     logout: (state) => {
-      state.user = null;
-      state.token = null;
-      window.localStorage.removeItem('token');
-      window.localStorage.removeItem('user');
+      clearAuthState(state);
+      state.ready = true;
     }
   },
   extraReducers: (builder) => {
-    // Triggered by apiSlice when a request comes back 401 (expired/invalid token)
     builder.addCase('auth/forceLogout', (state) => {
-      state.user = null;
-      state.token = null;
-      window.localStorage.removeItem('token');
-      window.localStorage.removeItem('user');
+      clearAuthState(state);
+      state.ready = true;
     });
   }
 });
 
-export const { setCredentials, logout } = authSlice.actions;
+export const { logout, setAuthReady, setCredentials } = authSlice.actions;
 export default authSlice.reducer;
 
 export const selectCurrentUser = (state) => state.auth.user;
-export const selectCurrentToken = (state) => state.auth.token;
-export const selectIsAuthenticated = (state) => Boolean(state.auth.token);
+export const selectCurrentToken = (state) => state.auth.accessToken;
+export const selectIsAuthenticated = (state) => Boolean(state.auth.accessToken);

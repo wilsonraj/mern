@@ -3,7 +3,7 @@
 A React (Vite) frontend boilerplate with:
 - **Redux Toolkit + RTK Query** for state and API data-fetching/caching
 - **React Hook Form + Yup** for dynamic, schema-based form validation
-- **Login flow** (JWT stored in Redux + localStorage, protected routes)
+- **Login flow** (short-lived access token in Redux memory, rotating HttpOnly refresh cookie)
 - **Light/dark theming** via MUI's `ThemeProvider`, toggle persisted to localStorage
 - **MUI and Bootstrap used together, safely isolated** — see below
 
@@ -29,8 +29,8 @@ src/
 │   └── apiSlice.js       # Base RTK Query setup: baseUrl, auth header injection, 401 handling
 ├── features/
 │   ├── auth/
-│   │   ├── authSlice.js  # user/token state, persisted to localStorage
-│   │   ├── authApi.js    # login/register/getProfile RTK Query endpoints
+│   │   ├── authSlice.js  # in-memory user/access-token state
+│   │   ├── authApi.js    # login/register/refresh/logout/getProfile endpoints
 │   │   ├── loginSchema.js # Yup schema for login form
 │   │   └── LoginPage.jsx # MUI-based login screen wired with RHF + yupResolver
 │   └── products/
@@ -124,10 +124,11 @@ means swapping the field component only — the schema and submit logic don't ch
 ## Auth flow
 
 1. `LoginPage` submits credentials via `useLoginMutation` (RTK Query).
-2. On success, `setCredentials` stores `{ user, token }` in Redux + localStorage.
-3. `apiSlice`'s `prepareHeaders` attaches `Authorization: Bearer <token>` to every subsequent request.
-4. If any request returns 401, `apiSlice` dispatches a `forceLogout` action, clearing auth state.
-5. `ProtectedRoute` redirects to `/login` (preserving the intended destination) whenever there's no token.
+2. The API returns a 15-minute access token and sets a 7-day refresh token in an HttpOnly cookie.
+3. `apiSlice` keeps the access token in Redux memory, sends it as a Bearer token, and includes credentials for the refresh cookie. The refresh token is never exposed to JavaScript.
+4. On access-token expiry, `apiSlice` rotates the refresh token and retries the original request. A refresh cookie is also checked when the app starts.
+5. Logout revokes the refresh session. Access tokens are not persisted to `localStorage`.
+6. MUI circular progress/backdrop indicators show loading states, and MUI snackbars show authentication success and error messages.
 
 ## Theming
 
