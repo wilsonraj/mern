@@ -22,6 +22,10 @@ const App = () => {
   const [refreshSession] = useRefreshMutation();
 
   useEffect(() => {
+    document.body.dataset.theme = mode;
+  }, [mode]);
+
+  useEffect(() => {
     if (!authBootstrapPromise) {
       authBootstrapPromise = refreshSession()
         .unwrap()

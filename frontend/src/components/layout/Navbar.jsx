@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
@@ -41,21 +42,27 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar position="static" elevation={0} color="default">
-      <Toolbar sx={{ gap: 2 }}>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
-          MERN Admin
+    <AppBar position="sticky" elevation={0} color="default" className="glass-appbar">
+      <Toolbar sx={{ gap: 2, maxWidth: 1280, width: '100%', mx: 'auto', px: { xs: 2, md: 3 }, minHeight: 72 }}>
+        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <span className="glass-brand">
+            <span className="glass-brand-mark"><Inventory2OutlinedIcon fontSize="small" /></span>
+            STOCKROOM
+          </span>
         </Typography>
 
-        <IconButton onClick={() => dispatch(toggleTheme())} aria-label="Toggle theme">
+        <IconButton onClick={() => dispatch(toggleTheme())} aria-label="Toggle theme" className="theme-toggle">
           {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
         </IconButton>
 
         {user && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              {user.name}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
+            <Box className="user-chip">
+              <Box className="user-avatar">{user.name?.charAt(0)?.toUpperCase() || 'U'}</Box>
+              <Typography variant="body2" color="text.primary" sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 600 }}>
+                {user.name}
+              </Typography>
+            </Box>
             <Button variant="outlined" size="small" onClick={handleLogout} disabled={isLoggingOut}>
               {isLoggingOut ? <CircularProgress size={18} /> : 'Log out'}
             </Button>

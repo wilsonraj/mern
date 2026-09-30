@@ -10,8 +10,8 @@ import ProductList from './ProductList';
  */
 const ProductsPage = () => {
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ py: 4 }}>
+    <Container maxWidth="lg" className="dashboard-container">
+      <Box>
         <ProductList />
       </Box>
     </Container>
