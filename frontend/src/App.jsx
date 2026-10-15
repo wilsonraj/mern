@@ -6,7 +6,7 @@ import Backdrop from '@mui/material/Backdrop';
 import CircularProgress from '@mui/material/CircularProgress';
 import { BrowserRouter } from 'react-router-dom';
 
-import { getMuiTheme } from './theme/muiTheme';
+import { gity } from './theme/muiTheme';
 import AppRoutes from './routes/AppRoutes';
 import ToastNotification from './components/common/ToastNotification';
 import { useRefreshMutation } from './features/auth/authApi';

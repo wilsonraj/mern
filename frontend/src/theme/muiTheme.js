@@ -25,7 +25,7 @@ const buildTheme = (mode) =>
         : {
             mode: 'light',
             primary: { main: '#6558d9', light: '#897ff0', dark: '#4b40b2' },
-            secondary: { main: '#149e97' },
+            secondary: { main: '#149e98' },
             background: { default: '#f3f5fb', paper: '#ffffff' },
             text: { primary: '#20243a', secondary: '#777e95' },
             divider: 'rgba(53,59,94,0.1)'
