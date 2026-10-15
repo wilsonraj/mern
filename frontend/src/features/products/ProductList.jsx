@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import Table from 'react-bootstrap/Table';
 import Button from 'react-bootstrap/Button';
-import Modal from 'react-bootstrap/Modal';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import Badge from 'react-bootstrap/Badge';
+import MuiButton from '@mui/material/Button';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { useSelector } from 'react-redux';
 
-import { getBootstrapPortalRoot } from '../../utils/bootstrapPortalRoot';
+import DynamicModal from '../../components/common/DynamicModal';
 import ProductForm from './ProductForm';
+import { selectCurrentUser } from '../auth/authSlice';
 import {
   useGetProductsQuery,
   useCreateProductMutation,
@@ -19,6 +23,8 @@ import {
 } from './productsApi';
 
 const ProductList = () => {
+  const user = useSelector(selectCurrentUser);
+  const isAdmin = user?.role === 'admin';
   const { data, isLoading, isError, error, refetch } = useGetProductsQuery();
   const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
@@ -30,6 +36,9 @@ const ProductList = () => {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const products = data?.data?.products || [];
+  const inventoryValue = products.reduce((total, product) => total + Number(product.price || 0) * Number(product.quantity || 0), 0);
+  const lowStockCount = products.filter((product) => product.quantity > 0 && product.quantity <= 5).length;
+  const outOfStockCount = products.filter((product) => Number(product.quantity) === 0).length;
 
   const openCreateForm = () => {
     setEditingProduct(null);
@@ -71,24 +80,45 @@ const ProductList = () => {
 
   return (
     <div className="bootstrap-scope">
-      <section className="glass-card p-4 p-md-5 mb-4 product-hero my-5 " sx={{marginBottom: '5rem 0'}}>
+      <section className="glass-card p-4 p-md-5 mb-4 product-hero my-5">
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-4 my-5">
           <div>
             <div className="product-eyebrow"><Inventory2OutlinedIcon fontSize="small" /> CATALOG OVERVIEW</div>
             <h1 className="product-heading mb-2">Products</h1>
             <p className="product-subtitle mb-0">Everything you sell, organized in one place.</p>
           </div>
-          <Button
-            variant="primary"
-            className="add-product-button d-inline-flex align-items-center gap-2"
-            onClick={openCreateForm}
-          >
-            <AddIcon fontSize="small" /> Add product
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="primary"
+              className="add-product-button d-inline-flex align-items-center gap-2"
+              onClick={openCreateForm}
+            >
+              <AddIcon fontSize="small" /> Add product
+            </Button>
+          )}
         </div>
-        <div className="product-count mt-4">
-          <span className="product-count-dot" />
-          {isLoading ? 'Updating catalog…' : `${products.length} ${products.length === 1 ? 'product' : 'products'} in your catalog`}
+
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4">
+          <div className="product-count">
+            <span className="product-count-dot" />
+            {isLoading ? 'Updating catalog…' : `${products.length} ${products.length === 1 ? 'product' : 'products'} in your catalog`}
+          </div>
+          <span className="product-live-signal">Live inventory</span>
+        </div>
+
+        <div className="product-stats">
+          <div className="stat-card">
+            <span className="stat-label">Inventory value</span>
+            <strong className="stat-value">${inventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Low stock</span>
+            <strong className="stat-value">{lowStockCount}</strong>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Out of stock</span>
+            <strong className="stat-value">{outOfStockCount}</strong>
+          </div>
         </div>
       </section>
 
@@ -113,7 +143,9 @@ const ProductList = () => {
           <div className="d-flex justify-content-between align-items-center gap-3 mb-2 px-2 pt-1">
             <div>
               <h2 className="product-section-title my-5">Your inventory</h2>
-              <p className="product-table-caption mb-5">View and manage your product details.</p>
+              <p className="product-table-caption mb-5">
+                {isAdmin ? 'View and manage your product details.' : 'Read-only view of your product catalog.'}
+              </p>
             </div>
             <span className="product-total-badge">{products.length} total</span>
           </div>
@@ -126,13 +158,13 @@ const ProductList = () => {
                   <th>Category</th>
                   <th>Price</th>
                   <th>In stock</th>
-                  <th className="text-end">Actions</th>
+                  {isAdmin && <th className="text-end">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {products.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center py-5">
+                    <td colSpan={isAdmin ? 6 : 5} className="text-center py-5">
                       <div className="empty-inventory-icon"><Inventory2OutlinedIcon /></div>
                       <strong className="d-block mt-3">Your catalog is ready for its first product</strong>
                       <span className="product-table-caption">Add an item to get your inventory organized.</span>
@@ -155,14 +187,16 @@ const ProductList = () => {
                         <span /> {product.quantity} {product.quantity === 1 ? 'unit' : 'units'}
                       </span>
                     </td>
-                    <td className="text-end">
-                      <Button size="sm" variant="outline-primary" className="row-action me-2" onClick={() => openEditForm(product)}>
-                        Edit
-                      </Button>
-                      <Button size="sm" variant="outline-danger" className="row-action" onClick={() => setPendingDeleteId(product._id)}>
-                        Delete
-                      </Button>
-                    </td>
+                    {isAdmin && (
+                      <td className="text-end">
+                        <Button size="sm" variant="outline-primary" className="row-action me-2" onClick={() => openEditForm(product)}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="outline-danger" className="row-action" onClick={() => setPendingDeleteId(product._id)}>
+                          Delete
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -171,31 +205,43 @@ const ProductList = () => {
         </section>
       )}
 
-      <Modal show={showForm} onHide={closeForm} centered size="lg" container={getBootstrapPortalRoot} className="glass-modal">
-        <Modal.Header closeButton>
-          <Modal.Title>{editingProduct ? 'Edit product' : 'Add a product'}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <ProductForm
-            initialValues={editingProduct}
-            onSubmit={handleSubmit}
-            onCancel={closeForm}
-            isSaving={isCreating || isUpdating}
-            apiError={formError}
-          />
-        </Modal.Body>
-      </Modal>
+      {isAdmin && <DynamicModal
+        open={showForm}
+        onClose={closeForm}
+        title={editingProduct ? 'Edit product' : 'Add a product'}
+        subtitle={editingProduct ? 'Update listing' : 'New listing'}
+        icon={editingProduct ? <EditIcon fontSize="small" /> : <AddIcon fontSize="small" />}
+        maxWidth="md"
+      >
+        <ProductForm
+          initialValues={editingProduct}
+          onSubmit={handleSubmit}
+          onCancel={closeForm}
+          isSaving={isCreating || isUpdating}
+          apiError={formError}
+        />
+      </DynamicModal>}
 
-      <Modal show={Boolean(pendingDeleteId)} onHide={() => setPendingDeleteId(null)} centered container={getBootstrapPortalRoot} className="glass-modal">
-        <Modal.Header closeButton>
-          <Modal.Title>Delete product</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>Are you sure you want to delete this product? This action cannot be undone.</Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-secondary" onClick={() => setPendingDeleteId(null)}>Cancel</Button>
-          <Button variant="danger" onClick={confirmDelete}>Delete product</Button>
-        </Modal.Footer>
-      </Modal>
+      {isAdmin && <DynamicModal
+        open={Boolean(pendingDeleteId)}
+        onClose={() => setPendingDeleteId(null)}
+        title="Delete product"
+        subtitle="Delete listing"
+        icon={<DeleteOutlineOutlinedIcon fontSize="small" />}
+        maxWidth="sm"
+        actions={
+          <>
+            <MuiButton variant="outlined" color="inherit" onClick={() => setPendingDeleteId(null)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+              Cancel
+            </MuiButton>
+            <MuiButton variant="contained" color="error" onClick={confirmDelete} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+              Delete product
+            </MuiButton>
+          </>
+        }
+      >
+        <p className="delete-modal-copy mb-0">Are you sure you want to delete this product? This action cannot be undone.</p>
+      </DynamicModal>}
     </div>
   );
 };

@@ -24,7 +24,7 @@ const baseQueryWithAuthHandling = async (args, api, extraOptions) => {
   let result = await baseQuery(args, api, extraOptions);
   const url = typeof args === 'string' ? args : args.url;
   const isAuthEndpoint = ['/users/login', '/users/register', '/users/refresh', '/users/logout']
-    .some((endpoint) => url.endsWith(endpoint));
+    .some((endpoint) => url.endsWith(endpoint)) || url.includes('/users/oauth/');
 
   if (result.error?.status === 401 && !isAuthEndpoint) {
     if (!refreshPromise) {
@@ -62,6 +62,6 @@ const baseQueryWithAuthHandling = async (args, api, extraOptions) => {
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithAuthHandling,
-  tagTypes: ['Product', 'User'],
+  tagTypes: ['Product', 'User', 'Community', 'Feed', 'Appointment'],
   endpoints: () => ({})
 });

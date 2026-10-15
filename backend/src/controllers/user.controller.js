@@ -1,4 +1,5 @@
 import * as userService from '../services/user.service.js';
+import { verifyProviderCredential } from '../services/oauth.service.js';
 import ApiResponse from '../utils/apiResponse.js';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
@@ -43,13 +44,14 @@ const sendTokenPair = (res, result, message, statusCode = 200) => {
 // @route   POST /api/users/register
 const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
-    if (!name || !email || !password) {
+    if (typeof name !== 'string' || typeof email !== 'string' ||
+      typeof password !== 'string' || !name.trim() || !email.trim() || !password) {
       return ApiResponse.error(res, 'Name, email, and password are required', 400);
     }
 
-    const result = await userService.registerUser({ name, email, password });
+    const result = await userService.registerUser({ name, email, password, role });
     return sendTokenPair(res, result, 'User registered successfully', 201);
   } catch (error) {
     next(error);
@@ -70,6 +72,16 @@ const loginUser = async (req, res, next) => {
     return sendTokenPair(res, result, 'Login successful');
   } catch (error) {
     next(error);
+  }
+};
+
+const loginWithProvider = async (req, res, next) => {
+  try {
+    const identity = await verifyProviderCredential(req.params.provider, req.body.credential);
+    const result = await userService.loginWithProvider(req.params.provider, identity);
+    return sendTokenPair(res, result, 'Signed in successfully');
+  } catch (error) {
+    return next(error);
   }
 };
 
@@ -110,4 +122,4 @@ const getProfile = async (req, res, next) => {
   }
 };
 
-export { getProfile, loginUser, logoutUser, refreshSession, registerUser };
+export { getProfile, loginUser, loginWithProvider, logoutUser, refreshSession, registerUser };

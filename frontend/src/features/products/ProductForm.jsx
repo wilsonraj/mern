@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Form from 'react-bootstrap/Form';
-import Button from 'react-bootstrap/Button';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Alert from 'react-bootstrap/Alert';
-import Spinner from 'react-bootstrap/Spinner';
 
-import BootstrapFormField from '../../components/form/BootstrapFormField';
+import MuiFormField from '../../components/form/MuiFormField';
 import { productSchema } from './productSchema';
 
 const defaultValues = {
@@ -56,43 +56,66 @@ const ProductForm = ({ initialValues, onSubmit, onCancel, isSaving, apiError }) 
       <Form onSubmit={handleSubmit(handleFormSubmit)} noValidate>
         <Row>
           <Col md={8}>
-            <BootstrapFormField name="name" control={control} label="Product name" />
+            <MuiFormField name="name" control={control} label="Product name" />
           </Col>
           <Col md={4}>
-            <BootstrapFormField name="sku" control={control} label="SKU" />
+            <MuiFormField name="sku" control={control} label="SKU" />
           </Col>
         </Row>
 
         <Row>
           <Col md={4}>
-            <BootstrapFormField name="category" control={control} label="Category" />
+            <MuiFormField name="category" control={control} label="Category" />
           </Col>
           <Col md={4}>
-            <BootstrapFormField name="price" control={control} label="Price" type="number" step="0.01" />
+            <MuiFormField name="price" control={control} label="Price" type="number" inputProps={{ step: '0.01' }} />
           </Col>
           <Col md={4}>
-            <BootstrapFormField name="quantity" control={control} label="Quantity" type="number" />
+            <MuiFormField name="quantity" control={control} label="Quantity" type="number" />
           </Col>
         </Row>
 
-        <BootstrapFormField
+        <MuiFormField
           name="description"
           control={control}
           label="Description"
-          as="textarea"
-          rows={3}
+          multiline
+          minRows={3}
         />
 
         <div className="d-flex justify-content-end gap-2 mt-3">
           {onCancel && (
-            <Button variant="outline-secondary" type="button" onClick={onCancel} disabled={busy}>
+            <Button
+              variant="outlined"
+              color="inherit"
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              sx={{
+                minWidth: 110,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 700
+              }}
+            >
               Cancel
             </Button>
           )}
-          <Button variant="primary" type="submit" disabled={busy}>
+          <Button
+            variant="contained"
+            color="primary"
+            type="submit"
+            disabled={busy}
+            sx={{
+              minWidth: 140,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 700
+            }}
+          >
             {busy ? (
               <>
-                <Spinner animation="border" size="sm" className="me-2" />
+                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
                 Saving...
               </>
             ) : (

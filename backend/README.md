@@ -22,19 +22,89 @@ and set `MONGO_URI` to your MongoDB connection string plus distinct, long random
 values for `JWT_SECRET` and `JWT_REFRESH_SECRET`. Set `FRONTEND_URL` to the frontend
 origin when it differs from `http://localhost:3000`.
 
+### Google and Microsoft sign-in
+
+Create OAuth applications with Google Identity Services and Microsoft Entra ID,
+then set the same client IDs in both applications:
+
+- Backend `.env`: `GOOGLE_CLIENT_ID` and `MICROSOFT_CLIENT_ID`
+- Frontend `.env`: `VITE_GOOGLE_CLIENT_ID` and `VITE_MICROSOFT_CLIENT_ID`
+
+For Google, add the frontend origin to the OAuth client's authorized JavaScript
+origins. For Microsoft, register a single-page application redirect URI matching
+the frontend origin (for local development, `http://localhost:3000`) and choose
+the supported account types you want to allow. Restart both servers after
+changing environment variables.
+
+The backend verifies each provider's signed ID token and audience before creating
+an account or issuing the app's access and refresh tokens. A provider identity is
+stored separately from password accounts; accounts with an existing email are
+not automatically linked and must first sign in with their existing method.
+
+### Admin, friends, and messaging
+
+Register the account that should be the first administrator, then promote it
+from the backend terminal:
+
+```bash
+npm run admin:promote -- admin@example.com
+```
+
+This command requires access to the backend machine and MongoDB. Sign out and
+back in (or reload the app) to refresh the account's role in the interface.
+Additional admins can be promoted in the Admin page.
+
+Public registration supports **patient** and **doctor** accounts only. Admin
+accounts are assigned by an existing admin or with the trusted
+`admin:promote` backend command; never expose admin assignment in public signup.
+On backend startup, existing regular accounts with the old `user` role are
+migrated to `patient`; administrator roles are not changed.
+Doctors can complete their profile, set their own per-appointment fee in INR,
+publish individual 30-minute appointment start times up to 90 days ahead, and
+accept or decline requests. Doctor signup is immediately enabled as selected.
+Patients may request online video consultations or clinic visits; clinic visits
+can be paid online or in person. Video visits require online payment. A doctor
+declining a paid request triggers a full Razorpay refund.
+
+To accept online payments, set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and
+`RAZORPAY_WEBHOOK_SECRET` in `backend/.env` using Razorpay test credentials for
+development and live credentials for production. Keep all secrets on the
+backend only. Configure the Razorpay webhook URL as
+`/api/payments/razorpay/webhook` and subscribe to the `payment.captured` event.
+Clinic visits can still use pay-at-visit while online checkout is unconfigured.
+
+Users can search the directory and send/accept friend requests. Direct messages
+between regular users are available only after the request is accepted.
+Administrators can start a conversation with any user, and that user can reply.
+Messages are stored in MongoDB and pushed to connected users over authenticated
+Socket.IO connections, and new incoming messages trigger an in-app notification.
+One-to-one audio and video calls use authenticated Socket.IO signaling and
+browser WebRTC media; both participants must be online and permitted to chat.
+Call state is held in backend memory, so a multi-instance deployment needs
+shared Socket.IO room delivery and coordinated call state.
+Regular users can view the product catalog; product creation, editing, deletion,
+and bulk upload require an administrator. The Admin page can create administrator
+accounts, change account roles, or delete accounts; deletion also removes that
+user's messages, friend requests, feed posts, likes, comments, and refresh
+sessions.
+
+Signed-in users can visit **Feed** to publish text and images, like posts,
+comment, and share links. Feed images are limited to 5 MB and stored locally in
+`src/uploads/feed`; keep that directory on persistent storage when deploying.
+
 ## Folder Structure
 
 ```
 src/
 ├── config/         # DB connection, multer (file upload) config
-├── models/         # Mongoose schemas (Product, User)
+├── models/         # Mongoose schemas (Product, User, FeedPost, ...)
 ├── controllers/    # Request/response handlers
 ├── services/       # Business logic (reusable, testable)
 ├── routes/         # Express route definitions
 ├── middlewares/    # Auth, validation, error handling
 ├── utils/          # Helpers (CSV/Excel parsing, logger, response formatter)
 ├── validations/     # Input validation rules
-├── uploads/         # Temp storage for uploaded files (auto-cleaned)
+├── uploads/         # Temporary bulk files and persistent local feed images
 ├── app.js
 └── server.js
 ```
@@ -46,9 +116,59 @@ src/
 |--------|---------------------|---------------------|
 | POST   | /api/users/register | Register, returns an access token and sets an HttpOnly refresh cookie |
 | POST   | /api/users/login    | Login, returns an access token and sets an HttpOnly refresh cookie |
+| POST   | /api/users/oauth/google | Verify Google ID token; create account or sign in |
+| POST   | /api/users/oauth/microsoft | Verify Microsoft ID token; create account or sign in |
 | POST   | /api/users/refresh  | Rotate refresh cookie and return a new access token |
 | POST   | /api/users/logout   | Revoke refresh session and clear its cookie |
 | GET    | /api/users/me       | Get current profile (access token required) |
+
+### Community and administration
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/community/directory | Search registered users |
+| GET/POST | /api/community/friend-requests | List pending requests / send a request |
+| PATCH | /api/community/friend-requests/:requestId | Accept or reject a request |
+| DELETE | /api/community/friends/:userId | Remove a friend |
+| GET/POST | /api/community/messages/:userId | Read or send a permitted direct conversation |
+| GET | /api/community/unread-counts | Get total and per-conversation unread message counts |
+| PATCH | /api/community/messages/:userId/read | Mark messages from a conversation as read |
+| GET | /api/community/admin/users | List users (admin only) |
+| POST | /api/community/admin/users | Create an administrator account (admin only) |
+| PATCH | /api/community/admin/users/:userId/role | Change a user role (admin only) |
+| DELETE | /api/community/admin/users/:userId | Delete a user account (admin only) |
+
+### Doctor appointments (authenticated)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/appointments/doctors | List doctors and available appointment times |
+| POST | /api/appointments | Request an appointment; online bookings return Razorpay Checkout details |
+| POST | /api/appointments/verify-payment | Verify and capture Razorpay payment |
+| GET | /api/appointments/mine | Get the current patient's or doctor's appointments |
+| GET/PUT | /api/appointments/doctor/profile | View or update doctor specialty, bio, and per-visit fee (doctor only) |
+| GET/POST | /api/appointments/doctor/slots | List or publish doctor availability (doctor only) |
+| DELETE | /api/appointments/doctor/slots/:slotId | Remove an unbooked time (doctor only) |
+| PATCH | /api/appointments/:appointmentId/status | Accept or decline a request (doctor only; paid declines are refunded) |
+| DELETE | /api/appointments/:appointmentId/payment-pending | Release an unpaid online reservation (patient only) |
+| POST | /api/payments/razorpay/webhook | Verify Razorpay payment events using the configured webhook secret |
+
+Appointments are paid individually; recurring plans are not used. Clinic
+pay-at-visit requests reserve the requested time and await doctor confirmation.
+Unfinished online checkouts expire after 30 minutes. Video consultations use
+the authenticated WebRTC call flow and are available 20 minutes before until
+60 minutes after the scheduled start.
+
+### News feed (authenticated)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/feed | Get the latest 100 posts |
+| POST | /api/feed | Create a post with optional `text` and `image` (`multipart/form-data`) |
+| POST | /api/feed/:postId/likes | Toggle the current user's like |
+| POST | /api/feed/:postId/comments | Add a comment using a JSON `text` field |
+| POST | /api/feed/:postId/shares | Record a share |
+
+Posts can contain text (up to 2000 characters), an image, or both. Images may
+be JPG, PNG, WEBP, or GIF, up to 5 MB. The frontend share action uses the
+browser's native share sheet when available, otherwise it copies a feed link.
 
 ### Products (CRUD)
 | Method | Endpoint                    | Description                         |

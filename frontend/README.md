@@ -12,11 +12,38 @@ A React (Vite) frontend boilerplate with:
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # point VITE_API_BASE_URL at your backend
+copy .env.example .env  # Windows; set the API URL and OAuth client IDs
 npm run dev             # starts on http://localhost:3000
 ```
 
 Pairs with the `backend/` project shared earlier (same repo family) — make sure that's running on the URL set in `.env`.
+Set `VITE_GOOGLE_CLIENT_ID` and `VITE_MICROSOFT_CLIENT_ID` in `.env` to enable the corresponding sign-in buttons. The backend must be configured with the matching `GOOGLE_CLIENT_ID` and `MICROSOFT_CLIENT_ID`; see the backend README for provider registration details.
+
+After signing in, use **Messages** to search for people and manage friend
+requests. Regular users can message accepted friends; administrator accounts
+can message any user. Administrators also see a **Admin** page for user roles
+and account management, including creating administrator accounts. Incoming
+messages show a notification with a shortcut to the Messages page. Promote the
+first administrator using `npm run admin:promote -- admin@example.com` from
+the backend directory; see the backend README.
+
+Choose **Patient** or **Doctor** during signup; Admin is never a public signup
+option. Doctors set a specialty, biography, and their own per-appointment INR
+fee in the Doctor portal, then publish individual appointment times. Patients
+can request video visits (online payment required) or clinic visits (online or
+pay-at-clinic). Doctors accept or decline each request; paid requests are
+refunded when declined. Configure Razorpay test/live keys only in the backend
+environment to enable online checkout. Payments are per appointment rather
+than recurring daily, weekly, or monthly subscriptions.
+
+Use **Feed** in the navigation bar to publish a text or image post, like and
+comment on posts, and share a post link. Image uploads must be JPG, PNG, WEBP,
+or GIF and no larger than 5 MB.
+
+The Messages page also supports one-to-one audio and video calls with online
+chat peers. Calls need microphone/camera permission and a secure browser context
+(HTTPS, or localhost during development). The built-in STUN server supports
+common network setups; restrictive firewalls may require a TURN server.
 
 ## Folder Structure
 
@@ -33,12 +60,15 @@ src/
 │   │   ├── authApi.js    # login/register/refresh/logout/getProfile endpoints
 │   │   ├── loginSchema.js # Yup schema for login form
 │   │   └── LoginPage.jsx # MUI-based login screen wired with RHF + yupResolver
-│   └── products/
+│   ├── products/
 │       ├── productsApi.js   # CRUD + bulk upload RTK Query endpoints
 │       ├── productSchema.js # Yup schema for product form
 │       ├── ProductForm.jsx  # Bootstrap-based form (RHF + yup), scoped
 │       ├── ProductList.jsx  # Bootstrap table + modals, scoped
 │       └── ProductsPage.jsx # Composes MUI layout + Bootstrap-scoped content
+│   └── community/
+│       ├── FeedPage.jsx      # News feed with image posts, likes, comments, and sharing
+│       └── communityApi.js   # Feed and messaging RTK Query endpoints
 ├── components/
 │   ├── common/           # Shared presentational components (add as needed)
 │   ├── form/
@@ -51,7 +81,7 @@ src/
 │   ├── muiTheme.js   # Light/dark MUI theme tokens (palette, typography, shape)
 │   └── themeSlice.js # Redux slice for theme mode, persisted to localStorage
 ├── routes/
-│   └── AppRoutes.jsx # Route table (public /login, protected /products)
+│   └── AppRoutes.jsx # Public auth routes and protected app routes
 ├── utils/
 │   └── bootstrapPortalRoot.js # Helper for scoping react-bootstrap portals (Modal etc.)
 ├── App.jsx      # ThemeProvider + CssBaseline + Router
@@ -129,6 +159,7 @@ means swapping the field component only — the schema and submit logic don't ch
 4. On access-token expiry, `apiSlice` rotates the refresh token and retries the original request. A refresh cookie is also checked when the app starts.
 5. Logout revokes the refresh session. Access tokens are not persisted to `localStorage`.
 6. MUI circular progress/backdrop indicators show loading states, and MUI snackbars show authentication success and error messages.
+7. Google and Microsoft sign-in return provider ID tokens to the backend, which verifies the signature and audience before creating or authenticating a provider account.
 
 ## Theming
 

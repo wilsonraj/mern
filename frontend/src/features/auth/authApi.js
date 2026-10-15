@@ -16,6 +16,13 @@ export const authApi = apiSlice.injectEndpoints({
         body: userData
       })
     }),
+    socialLogin: builder.mutation({
+      query: ({ provider, credential }) => ({
+        url: `/users/oauth/${provider}`,
+        method: 'POST',
+        body: { credential }
+      })
+    }),
     refresh: builder.mutation({
       query: () => ({
         url: '/users/refresh',
@@ -40,5 +47,6 @@ export const {
   useLogoutMutation,
   useRefreshMutation,
   useRegisterMutation,
+  useSocialLoginMutation,
   useGetProfileQuery
 } = authApi;

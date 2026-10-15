@@ -6,9 +6,11 @@ import Backdrop from '@mui/material/Backdrop';
 import CircularProgress from '@mui/material/CircularProgress';
 import { BrowserRouter } from 'react-router-dom';
 
-import { gity } from './theme/muiTheme';
+import { getMuiTheme} from './theme/muiTheme';
 import AppRoutes from './routes/AppRoutes';
 import ToastNotification from './components/common/ToastNotification';
+import RealtimeNotifications from './components/common/RealtimeNotifications';
+import { ChatCallProvider } from './components/common/ChatCallProvider';
 import { useRefreshMutation } from './features/auth/authApi';
 import { logout, setAuthReady, setCredentials } from './features/auth/authSlice';
 
@@ -51,13 +53,16 @@ const App = () => {
           Bootstrap's own Reboot reset is scoped separately (see postcss.config.js). */}
       <CssBaseline />
       <BrowserRouter>
-        {authReady ? <AppRoutes /> : (
-          <Backdrop open sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, color: '#fff' }}>
-            <CircularProgress color="inherit" />
-          </Backdrop>
-        )}
+        <ChatCallProvider>
+          {authReady ? <AppRoutes /> : (
+            <Backdrop open sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, color: '#fff' }}>
+              <CircularProgress color="inherit" />
+            </Backdrop>
+          )}
+        </ChatCallProvider>
+        <RealtimeNotifications />
+        <ToastNotification />
       </BrowserRouter>
-      <ToastNotification />
     </ThemeProvider>
   );
 };

@@ -17,14 +17,36 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: [
+        function () {
+          return !this.googleId && !this.microsoftId;
+        },
+        'Password is required'
+      ],
       minlength: 6,
+      select: false
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      select: false
+    },
+    microsoftId: {
+      type: String,
+      unique: true,
+      sparse: true,
       select: false
     },
     role: {
       type: String,
-      enum: ['admin', 'user'],
-      default: 'user'
+      enum: ['admin', 'doctor', 'patient', 'user'],
+      default: 'patient'
+    },
+    doctorProfile: {
+      specialty: { type: String, trim: true, maxlength: 100 },
+      bio: { type: String, trim: true, maxlength: 2000 },
+      fee: { type: Number, min: 1, max: 1000000 }
     }
   },
   { timestamps: true }

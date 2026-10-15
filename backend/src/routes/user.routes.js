@@ -2,6 +2,7 @@ import express from 'express';
 import {
   registerUser,
   loginUser,
+  loginWithProvider,
   logoutUser,
   refreshSession,
   getProfile
@@ -20,6 +21,7 @@ const validateFrontendOrigin = (req, res, next) => {
 
 router.post('/register', registerUser);
 router.post('/login', loginUser);
+router.post('/oauth/:provider', loginWithProvider);
 router.post('/refresh', validateFrontendOrigin, refreshSession);
 router.post('/logout', validateFrontendOrigin, logoutUser);
 router.get('/me', protect, getProfile);

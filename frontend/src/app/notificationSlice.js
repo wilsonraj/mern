@@ -3,7 +3,9 @@ import { createSlice } from '@reduxjs/toolkit';
 const initialState = {
   open: false,
   message: '',
-  severity: 'info'
+  severity: 'info',
+  actionLabel: '',
+  actionPath: ''
 };
 
 const notificationSlice = createSlice({
@@ -13,10 +15,14 @@ const notificationSlice = createSlice({
     showNotification: (state, action) => {
       state.message = action.payload.message;
       state.severity = action.payload.severity || 'info';
+      state.actionLabel = action.payload.actionLabel || '';
+      state.actionPath = action.payload.actionPath || '';
       state.open = true;
     },
     hideNotification: (state) => {
       state.open = false;
+      state.actionLabel = '';
+      state.actionPath = '';
     }
   }
 });
