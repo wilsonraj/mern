@@ -59,19 +59,16 @@ accounts are assigned by an existing admin or with the trusted
 `admin:promote` backend command; never expose admin assignment in public signup.
 On backend startup, existing regular accounts with the old `user` role are
 migrated to `patient`; administrator roles are not changed.
-Doctors can complete their profile, set their own per-appointment fee in INR,
-publish individual 30-minute appointment start times up to 90 days ahead, and
-accept or decline requests. Doctor signup is immediately enabled as selected.
-Patients may request online video consultations or clinic visits; clinic visits
-can be paid online or in person. Video visits require online payment. A doctor
-declining a paid request triggers a full Razorpay refund.
+Doctors can complete their profile, set repeating weekly availability windows,
+add one-time appointment times, and accept or decline requests. Each availability
+window offers 30-minute appointments for the next 90 days in the doctor's time
+zone. Doctor signup is immediately enabled as selected. Patients may request
+video consultations or clinic visits; appointment requests do not collect
+payments.
 
-To accept online payments, set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and
-`RAZORPAY_WEBHOOK_SECRET` in `backend/.env` using Razorpay test credentials for
-development and live credentials for production. Keep all secrets on the
-backend only. Configure the Razorpay webhook URL as
-`/api/payments/razorpay/webhook` and subscribe to the `payment.captured` event.
-Clinic visits can still use pay-at-visit while online checkout is unconfigured.
+`RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are only needed to refund
+appointments that were paid before appointment payments were removed. Keep
+these credentials on the backend only.
 
 Users can search the directory and send/accept friend requests. Direct messages
 between regular users are available only after the request is accepted.
@@ -141,21 +138,22 @@ src/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /api/appointments/doctors | List doctors and available appointment times |
-| POST | /api/appointments | Request an appointment; online bookings return Razorpay Checkout details |
-| POST | /api/appointments/verify-payment | Verify and capture Razorpay payment |
+| POST | /api/appointments | Request an appointment; the request awaits doctor confirmation |
 | GET | /api/appointments/mine | Get the current patient's or doctor's appointments |
-| GET/PUT | /api/appointments/doctor/profile | View or update doctor specialty, bio, and per-visit fee (doctor only) |
-| GET/POST | /api/appointments/doctor/slots | List or publish doctor availability (doctor only) |
+| DELETE | /api/appointments/:appointmentId | Cancel an upcoming pending or accepted appointment (patient only) |
+| GET/PUT | /api/appointments/doctor/profile | View or update doctor specialty and bio (doctor only) |
+| GET/PUT | /api/appointments/doctor/availability | Read or replace weekly availability windows (doctor only) |
+| GET/POST | /api/appointments/doctor/slots | List or publish one-time 30-minute appointment times (doctor only) |
 | DELETE | /api/appointments/doctor/slots/:slotId | Remove an unbooked time (doctor only) |
-| PATCH | /api/appointments/:appointmentId/status | Accept or decline a request (doctor only; paid declines are refunded) |
-| DELETE | /api/appointments/:appointmentId/payment-pending | Release an unpaid online reservation (patient only) |
-| POST | /api/payments/razorpay/webhook | Verify Razorpay payment events using the configured webhook secret |
+| PATCH | /api/appointments/:appointmentId/status | Accept or decline a request (doctor only) |
 
-Appointments are paid individually; recurring plans are not used. Clinic
-pay-at-visit requests reserve the requested time and await doctor confirmation.
-Unfinished online checkouts expire after 30 minutes. Video consultations use
-the authenticated WebRTC call flow and are available 20 minutes before until
-60 minutes after the scheduled start.
+Video consultations use the authenticated WebRTC call flow and are available
+20 minutes before until 60 minutes after the scheduled start.
+
+When deploying patient cancellation to a database that already has the old
+unique `doctor_1_startsAt_1` index, drop that index once before restarting the
+backend. The updated partial unique index lets cancelled or declined times be
+booked again while still preventing duplicate active bookings.
 
 ### News feed (authenticated)
 | Method | Endpoint | Description |

@@ -88,7 +88,7 @@ const FeedPage = () => {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
+    <Container maxWidth="md" sx={{ py: 4 }}>
       <Typography variant="overline" color="primary" sx={{ fontWeight: 750, letterSpacing: '0.13em' }}>
         COMMUNITY
       </Typography>

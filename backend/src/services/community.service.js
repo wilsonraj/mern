@@ -182,7 +182,6 @@ const getCallPeer = async (actor, recipientId) => {
   const appointment = await Appointment.findOne({
     status: 'accepted',
     mode: 'video',
-    paymentStatus: 'paid',
     startsAt: {
       $gte: new Date(Date.now() - 60 * 60 * 1000),
       $lte: new Date(Date.now() + 20 * 60 * 1000)
@@ -192,7 +191,7 @@ const getCallPeer = async (actor, recipientId) => {
       { patient: actor._id, doctor: recipientId }
     ]
   }).select('_id');
-  if (!appointment) throw forbidden('Video calls are only available for an accepted, paid video appointment near its scheduled time');
+  if (!appointment) throw forbidden('Video calls are only available for an accepted video appointment near its scheduled time');
   const peer = await User.findById(recipientId).select('_id role name');
   if (!peer) throw notFound('User not found');
   return peer;
@@ -291,7 +290,7 @@ const updateUserRole = async (actor, userId, role) => {
     const activeAppointmentCount = await Appointment.countDocuments({
       $or: [{ patient: user._id }, { doctor: user._id }],
       startsAt: { $gt: new Date() },
-      status: { $in: ['awaiting_payment', 'pending', 'accepted'] }
+      status: { $in: ['awaiting_payment', 'pending', 'accepted', 'cancelling'] }
     });
     if (activeAppointmentCount) {
       throw conflict("Resolve this account's upcoming appointments before changing its role");

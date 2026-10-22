@@ -21,24 +21,17 @@ const appointmentSchema = new mongoose.Schema(
       enum: ['video', 'clinic'],
       required: true
     },
-    paymentMethod: {
-      type: String,
-      enum: ['online', 'in_person'],
-      required: true
-    },
     paymentStatus: {
       type: String,
-      enum: ['pending', 'paid', 'pay_at_visit', 'refunded'],
-      required: true
+      enum: ['pending', 'paid', 'pay_at_visit', 'refunded']
     },
     amount: {
       type: Number,
-      required: true,
       min: 1
     },
     status: {
       type: String,
-      enum: ['awaiting_payment', 'pending', 'accepted', 'rejected', 'cancelled'],
+      enum: ['awaiting_payment', 'pending', 'accepted', 'rejected', 'cancelled', 'cancelling'],
       default: 'pending',
       required: true
     },
@@ -49,7 +42,15 @@ const appointmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-appointmentSchema.index({ doctor: 1, startsAt: 1 }, { unique: true });
+appointmentSchema.index(
+  { doctor: 1, startsAt: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ['awaiting_payment', 'pending', 'accepted', 'cancelling'] }
+    }
+  }
+);
 appointmentSchema.index({ patient: 1, startsAt: -1 });
 appointmentSchema.index({ doctor: 1, startsAt: -1 });
 appointmentSchema.index(

@@ -45,8 +45,7 @@ const userSchema = new mongoose.Schema(
     },
     doctorProfile: {
       specialty: { type: String, trim: true, maxlength: 100 },
-      bio: { type: String, trim: true, maxlength: 2000 },
-      fee: { type: Number, min: 1, max: 1000000 }
+      bio: { type: String, trim: true, maxlength: 2000 }
     }
   },
   { timestamps: true }

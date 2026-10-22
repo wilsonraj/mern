@@ -5,7 +5,6 @@ import morgan from 'morgan';
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middlewares/error.middleware.js';
 import { uploadDirectory } from './config/feedUpload.config.js';
-import { razorpayWebhook } from './controllers/payment.controller.js';
 
 const app = express();
 
@@ -14,11 +13,6 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
-app.post(
-  '/api/payments/razorpay/webhook',
-  express.raw({ type: 'application/json' }),
-  razorpayWebhook
-);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads/feed', express.static(uploadDirectory, { fallthrough: false }));

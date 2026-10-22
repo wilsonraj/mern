@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Box,
   Button,
   Card,
   CardContent,
@@ -13,45 +14,45 @@ import {
   Stack,
   Typography
 } from '@mui/material';
-import { useDispatch, useSelector } from 'react-redux';
+import IconButton from '@mui/material/IconButton';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import { useDispatch } from 'react-redux';
 
 import { showNotification } from '../../app/notificationSlice';
 import { useChatCalls } from '../../components/common/ChatCallProvider';
-import { selectCurrentUser } from '../auth/authSlice';
 import {
-  useCancelPendingAppointmentMutation,
+  useCancelPatientAppointmentMutation,
   useCreateAppointmentMutation,
   useGetAppointmentDoctorsQuery,
-  useGetMyAppointmentsQuery,
-  useVerifyAppointmentPaymentMutation
+  useGetMyAppointmentsQuery
 } from './communityApi';
-
-let checkoutScriptPromise;
-const loadCheckout = () => {
-  if (window.Razorpay) return Promise.resolve();
-  if (!checkoutScriptPromise) {
-    checkoutScriptPromise = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = resolve;
-      script.onerror = () => {
-        checkoutScriptPromise = null;
-        reject(new Error('Could not load Razorpay Checkout.'));
-      };
-      document.body.appendChild(script);
-    });
-  }
-  return checkoutScriptPromise;
-};
 
 const formatTime = (startsAt) => new Date(startsAt).toLocaleString(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short'
 });
 
+const getDateKey = (date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0')
+].join('-');
+
+const getCalendarDates = (month) => {
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+  const mondayOffset = (firstDay.getDay() + 6) % 7;
+  const firstCell = new Date(firstDay);
+  firstCell.setDate(firstDay.getDate() - mondayOffset);
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(firstCell);
+    date.setDate(firstCell.getDate() + index);
+    return date;
+  });
+};
+
 const PatientAppointmentsPage = () => {
   const dispatch = useDispatch();
-  const user = useSelector(selectCurrentUser);
   const { call, startCall } = useChatCalls();
   const { data: doctorResponse, isLoading, isError } = useGetAppointmentDoctorsQuery(undefined, {
     pollingInterval: 30000
@@ -60,17 +61,29 @@ const PatientAppointmentsPage = () => {
     pollingInterval: 30000
   });
   const [createAppointment, { isLoading: isBooking }] = useCreateAppointmentMutation();
-  const [verifyPayment] = useVerifyAppointmentPaymentMutation();
-  const [cancelPending] = useCancelPendingAppointmentMutation();
+  const [cancelAppointment, { isLoading: isCancelling }] = useCancelPatientAppointmentMutation();
   const doctors = doctorResponse?.data || [];
   const appointments = appointmentResponse?.data || [];
   const [doctorId, setDoctorId] = useState('');
-  const [slotId, setSlotId] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [mode, setMode] = useState('video');
-  const [paymentMethod, setPaymentMethod] = useState('online');
+  const [cancellingAppointmentId, setCancellingAppointmentId] = useState('');
   const [, setClock] = useState(Date.now());
   const selectedDoctor = doctors.find((doctor) => doctor._id === doctorId);
   const availableSlots = selectedDoctor?.slots || [];
+  const slotsByDate = useMemo(() => availableSlots.reduce((result, slot) => {
+    const key = getDateKey(new Date(slot.startsAt));
+    result[key] = [...(result[key] || []), slot];
+    return result;
+  }, {}), [availableSlots]);
+  const dates = useMemo(() => getCalendarDates(calendarMonth), [calendarMonth]);
+  const selectedDaySlots = slotsByDate[selectedDate] || [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const lastBookableDay = new Date(today);
+  lastBookableDay.setDate(lastBookableDay.getDate() + 90);
   const sortedAppointments = useMemo(
     () => [...appointments].sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt)),
     [appointments]
@@ -83,97 +96,40 @@ const PatientAppointmentsPage = () => {
 
   const handleBook = async (event) => {
     event.preventDefault();
-    let appointmentId;
     try {
-      const result = await createAppointment({ doctorId, slotId, mode, paymentMethod }).unwrap();
-      const { appointment, payment } = result.data;
-      appointmentId = appointment._id;
-      if (!payment) {
-        dispatch(showNotification({
-          message: 'Appointment requested. Pay the doctor at the clinic after confirmation.',
-          severity: 'success'
-        }));
-        setSlotId('');
-        return;
-      }
-
-      await loadCheckout();
-      let paymentFlowFinished = false;
-      const checkout = new window.Razorpay({
-        key: payment.keyId,
-        order_id: payment.orderId,
-        amount: payment.amount,
-        currency: payment.currency,
-        name: payment.name,
-        description: payment.description,
-        prefill: payment.prefill,
-        theme: { color: '#1976d2' },
-        handler: async (response) => {
-          paymentFlowFinished = true;
-          try {
-            await verifyPayment({
-              appointmentId,
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature
-            }).unwrap();
-            dispatch(showNotification({
-              message: 'Payment received. Your appointment is waiting for doctor confirmation.',
-              severity: 'success'
-            }));
-            setSlotId('');
-          } catch (error) {
-            dispatch(showNotification({
-              message: error?.data?.message || 'Payment completed but could not be verified. Contact support with your payment ID.',
-              severity: 'error'
-            }));
-          }
-        },
-        modal: {
-          ondismiss: async () => {
-            if (paymentFlowFinished) return;
-            try {
-              await cancelPending(appointmentId).unwrap();
-            } catch (error) {
-              dispatch(showNotification({
-                message: error?.data?.message || 'Could not release the unpaid appointment slot.',
-                severity: 'error'
-              }));
-            }
-          }
-        }
-      });
-      checkout.on('payment.failed', async ({ error }) => {
-        paymentFlowFinished = true;
-        dispatch(showNotification({
-          message: error.description || 'Payment failed. Please try again.',
-          severity: 'error'
-        }));
-        try {
-          await cancelPending(appointmentId).unwrap();
-        } catch (cancelError) {
-          dispatch(showNotification({
-            message: cancelError?.data?.message || 'Could not release the unpaid appointment slot.',
-            severity: 'error'
-          }));
-        }
-      });
-      checkout.open();
+      await createAppointment({ doctorId, startsAt: selectedTime, mode }).unwrap();
+      dispatch(showNotification({
+        message: 'Appointment requested. It is waiting for doctor confirmation.',
+        severity: 'success'
+      }));
+      setSelectedTime('');
     } catch (error) {
-      if (appointmentId) {
-        try {
-          await cancelPending(appointmentId).unwrap();
-        } catch (cancelError) {
-          dispatch(showNotification({
-            message: cancelError?.data?.message || 'Could not release the unpaid appointment slot.',
-            severity: 'error'
-          }));
-        }
-      }
       dispatch(showNotification({
         message: error?.data?.message || error.message || 'Could not book this appointment.',
         severity: 'error'
       }));
+    }
+  };
+
+  const handleCancelAppointment = async (appointment) => {
+    const doctorName = appointment.doctor?.name || 'this doctor';
+    if (!window.confirm(`Cancel your appointment with Dr. ${doctorName} on ${formatTime(appointment.startsAt)}?`)) {
+      return;
+    }
+    setCancellingAppointmentId(appointment._id);
+    try {
+      await cancelAppointment(appointment._id).unwrap();
+      dispatch(showNotification({
+        message: 'Appointment cancelled.',
+        severity: 'success'
+      }));
+    } catch (error) {
+      dispatch(showNotification({
+        message: error?.data?.message || 'Could not cancel this appointment.',
+        severity: 'error'
+      }));
+    } finally {
+      setCancellingAppointmentId('');
     }
   };
 
@@ -189,7 +145,7 @@ const PatientAppointmentsPage = () => {
             {isLoading && <CircularProgress size={24} />}
             {isError && <Alert severity="error">Could not load doctors. Please try again.</Alert>}
             {!isLoading && !isError && doctors.length === 0 && (
-              <Alert severity="info">No doctors have published their consultation fees and available times yet.</Alert>
+              <Alert severity="info">No doctors have published available appointment times yet.</Alert>
             )}
             <FormControl fullWidth>
               <InputLabel id="doctor-select-label">Doctor</InputLabel>
@@ -199,14 +155,15 @@ const PatientAppointmentsPage = () => {
                 value={doctorId}
                 onChange={(event) => {
                   setDoctorId(event.target.value);
-                  setSlotId('');
+                  setSelectedDate('');
+                  setSelectedTime('');
                 }}
                 disabled={doctors.length === 0}
                 required
               >
                 {doctors.map((doctor) => (
                   <MenuItem key={doctor._id} value={doctor._id}>
-                    Dr. {doctor.name} · {doctor.doctorProfile.specialty} · ₹{doctor.doctorProfile.fee}
+                    Dr. {doctor.name} · {doctor.doctorProfile.specialty}
                   </MenuItem>
                 ))}
               </Select>
@@ -214,50 +171,110 @@ const PatientAppointmentsPage = () => {
             {selectedDoctor?.doctorProfile.bio && (
               <Typography variant="body2" color="text.secondary">{selectedDoctor.doctorProfile.bio}</Typography>
             )}
-            <FormControl fullWidth>
-              <InputLabel id="slot-select-label">Available time</InputLabel>
-              <Select
-                labelId="slot-select-label"
-                label="Available time"
-                value={slotId}
-                onChange={(event) => setSlotId(event.target.value)}
-                disabled={!availableSlots.length}
-                required
-              >
-                {availableSlots.map((slot) => (
-                  <MenuItem key={slot._id} value={slot._id}>{formatTime(slot.startsAt)}</MenuItem>
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: { xs: 1.5, sm: 2 } }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+                <IconButton
+                  type="button"
+                  aria-label="Previous month"
+                  onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                  disabled={calendarMonth <= new Date(today.getFullYear(), today.getMonth(), 1)}
+                >
+                  <ArrowBackIosNewIcon fontSize="small" />
+                </IconButton>
+                <Typography variant="h6" component="h2">
+                  {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                </Typography>
+                <IconButton
+                  type="button"
+                  aria-label="Next month"
+                  onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                  disabled={calendarMonth >= new Date(lastBookableDay.getFullYear(), lastBookableDay.getMonth(), 1)}
+                >
+                  <ArrowForwardIosIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 0.5 }}>
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                  <Typography key={day} variant="caption" align="center" color="text.secondary" sx={{ py: 0.5 }}>
+                    {day}
+                  </Typography>
                 ))}
-              </Select>
-            </FormControl>
+                {dates.map((date) => {
+                  const dateKey = getDateKey(date);
+                  const daySlots = slotsByDate[dateKey] || [];
+                  const outOfMonth = date.getMonth() !== calendarMonth.getMonth();
+                  const unavailableDate = date < today || date > lastBookableDay || daySlots.length === 0;
+                  return (
+                    <Button
+                      type="button"
+                      key={dateKey}
+                      variant={selectedDate === dateKey ? 'contained' : 'text'}
+                      color={selectedDate === dateKey ? 'primary' : 'inherit'}
+                      disabled={unavailableDate}
+                      onClick={() => {
+                        setSelectedDate(dateKey);
+                        setSelectedTime('');
+                      }}
+                      sx={{
+                        minWidth: 0,
+                        minHeight: { xs: 48, sm: 58 },
+                        p: 0.5,
+                        flexDirection: 'column',
+                        color: outOfMonth && selectedDate !== dateKey ? 'text.disabled' : undefined
+                      }}
+                    >
+                      <Typography variant="body2">{date.getDate()}</Typography>
+                      {daySlots.length > 0 && (
+                        <Typography variant="caption">{daySlots.length} times</Typography>
+                      )}
+                    </Button>
+                  );
+                })}
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                {selectedDate
+                  ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString(undefined, {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric'
+                  })
+                  : 'Choose a date with available times.'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Times are shown in your local time zone. Appointments are 30 minutes.
+              </Typography>
+              {selectedDate && selectedDaySlots.length > 0 && (
+                <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1 }}>
+                  {selectedDaySlots.map((slot) => (
+                    <Button
+                      type="button"
+                      key={slot._id}
+                      size="small"
+                      variant={selectedTime === slot.startsAt ? 'contained' : 'outlined'}
+                      onClick={() => setSelectedTime(slot.startsAt)}
+                    >
+                      {new Date(slot.startsAt).toLocaleTimeString(undefined, {
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
+                    </Button>
+                  ))}
+                </Stack>
+              )}
+            </Box>
             <FormControl fullWidth>
               <InputLabel id="visit-mode-label">Appointment type</InputLabel>
               <Select
                 labelId="visit-mode-label"
                 label="Appointment type"
                 value={mode}
-                onChange={(event) => {
-                  const nextMode = event.target.value;
-                  setMode(nextMode);
-                  if (nextMode === 'video') setPaymentMethod('online');
-                }}
+                onChange={(event) => setMode(event.target.value)}
               >
                 <MenuItem value="video">Video consultation</MenuItem>
                 <MenuItem value="clinic">Visit the doctor at the clinic</MenuItem>
               </Select>
             </FormControl>
-            <FormControl fullWidth>
-              <InputLabel id="payment-method-label">Payment method</InputLabel>
-              <Select
-                labelId="payment-method-label"
-                label="Payment method"
-                value={mode === 'video' ? 'online' : paymentMethod}
-                onChange={(event) => setPaymentMethod(event.target.value)}
-              >
-                <MenuItem value="online">Pay online with Razorpay</MenuItem>
-                {mode === 'clinic' && <MenuItem value="in_person">Pay the doctor at the clinic</MenuItem>}
-              </Select>
-            </FormControl>
-            <Button type="submit" variant="contained" disabled={!doctorId || !slotId || isBooking}>
+            <Button type="submit" variant="contained" disabled={!doctorId || !selectedTime || isBooking}>
               {isBooking ? <CircularProgress size={22} color="inherit" /> : 'Request appointment'}
             </Button>
           </Stack>
@@ -277,13 +294,24 @@ const PatientAppointmentsPage = () => {
                 </Typography>
                 <Typography color="text.secondary">{formatTime(appointment.startsAt)}</Typography>
                 <Typography variant="body2">
-                  {appointment.mode === 'video' ? 'Video consultation' : 'Clinic visit'} · ₹{appointment.amount / 100}
+                  {appointment.mode === 'video' ? 'Video consultation' : 'Clinic visit'} ·
+                  {' '}Status: {appointment.status.replaceAll('_', ' ')}
                 </Typography>
-                <Typography variant="body2">
-                  Status: {appointment.status.replaceAll('_', ' ')} · Payment: {appointment.paymentStatus.replaceAll('_', ' ')}
-                </Typography>
+                {['pending', 'accepted'].includes(appointment.status) &&
+                  new Date(appointment.startsAt).getTime() > Date.now() && (
+                    <Button
+                      sx={{ mt: 1 }}
+                      color="error"
+                      variant="outlined"
+                      disabled={isCancelling}
+                      onClick={() => handleCancelAppointment(appointment)}
+                    >
+                      {isCancelling && cancellingAppointmentId === appointment._id
+                        ? <CircularProgress size={18} />
+                        : 'Cancel appointment'}
+                    </Button>
+                  )}
                 {appointment.status === 'accepted' && appointment.mode === 'video' &&
-                  appointment.paymentStatus === 'paid' &&
                   Date.now() >= new Date(appointment.startsAt).getTime() - 20 * 60 * 1000 &&
                   Date.now() <= new Date(appointment.startsAt).getTime() + 60 * 60 * 1000 && (
                     <Button

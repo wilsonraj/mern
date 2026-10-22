@@ -21,23 +21,15 @@ export const communityApi = apiSlice.injectEndpoints({
         { type: 'Appointment', id: 'DOCTORS' }
       ]
     }),
-    verifyAppointmentPayment: builder.mutation({
-      query: (paymentDetails) => ({
-        url: '/appointments/verify-payment',
-        method: 'POST',
-        body: paymentDetails
+    cancelPatientAppointment: builder.mutation({
+      query: (appointmentId) => ({
+        url: `/appointments/${appointmentId}`,
+        method: 'DELETE'
       }),
       invalidatesTags: [
         { type: 'Appointment', id: 'MINE' },
         { type: 'Appointment', id: 'DOCTORS' }
       ]
-    }),
-    cancelPendingAppointment: builder.mutation({
-      query: (appointmentId) => ({
-        url: `/appointments/${appointmentId}/payment-pending`,
-        method: 'DELETE'
-      }),
-      invalidatesTags: [{ type: 'Appointment', id: 'DOCTORS' }]
     }),
     updateDoctorProfile: builder.mutation({
       query: (profile) => ({
@@ -54,9 +46,25 @@ export const communityApi = apiSlice.injectEndpoints({
       query: () => '/appointments/doctor/slots',
       providesTags: [{ type: 'Appointment', id: 'SLOTS' }]
     }),
+    getDoctorAvailability: builder.query({
+      query: () => '/appointments/doctor/availability',
+      providesTags: [{ type: 'Appointment', id: 'WEEKLY_AVAILABILITY' }]
+    }),
     getDoctorProfile: builder.query({
       query: () => '/appointments/doctor/profile',
       providesTags: [{ type: 'Appointment', id: 'DOCTOR_PROFILE' }]
+    }),
+    updateDoctorAvailability: builder.mutation({
+      query: (availability) => ({
+        url: '/appointments/doctor/availability',
+        method: 'PUT',
+        body: availability
+      }),
+      invalidatesTags: [
+        { type: 'Appointment', id: 'WEEKLY_AVAILABILITY' },
+        { type: 'Appointment', id: 'SLOTS' },
+        { type: 'Appointment', id: 'DOCTORS' }
+      ]
     }),
     publishDoctorSlots: builder.mutation({
       query: (startsAt) => ({
@@ -239,8 +247,9 @@ export const communityApi = apiSlice.injectEndpoints({
 });
 
 export const {
-  useCancelPendingAppointmentMutation,
+  useCancelPatientAppointmentMutation,
   useCreateAppointmentMutation,
+  useGetDoctorAvailabilityQuery,
   useGetAppointmentDoctorsQuery,
   useGetDoctorSlotsQuery,
   useGetDoctorProfileQuery,
@@ -265,7 +274,7 @@ export const {
   useSendMessageMutation,
   useToggleFeedLikeMutation,
   useUpdateAppointmentStatusMutation,
+  useUpdateDoctorAvailabilityMutation,
   useUpdateDoctorProfileMutation,
-  useUpdateUserRoleMutation,
-  useVerifyAppointmentPaymentMutation
+  useUpdateUserRoleMutation
 } = communityApi;

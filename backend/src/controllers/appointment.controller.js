@@ -1,15 +1,6 @@
 import * as appointmentService from '../services/appointment.service.js';
 import ApiResponse from '../utils/apiResponse.js';
 
-const cancelPendingAppointment = async (req, res, next) => {
-  try {
-    await appointmentService.cancelPendingAppointment(req.user, req.params.appointmentId);
-    return ApiResponse.success(res, null, 'Unpaid appointment cancelled');
-  } catch (error) {
-    return next(error);
-  }
-};
-
 const getDoctors = async (req, res, next) => {
   try {
     return ApiResponse.success(res, await appointmentService.getDoctors(), 'Doctors fetched');
@@ -44,6 +35,24 @@ const getDoctorSlots = async (req, res, next) => {
   }
 };
 
+const getDoctorAvailability = async (req, res, next) => {
+  try {
+    const availability = await appointmentService.getDoctorAvailability(req.user);
+    return ApiResponse.success(res, availability, 'Doctor weekly availability fetched');
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const updateDoctorAvailability = async (req, res, next) => {
+  try {
+    const availability = await appointmentService.updateDoctorAvailability(req.user, req.body);
+    return ApiResponse.success(res, availability, 'Doctor weekly availability updated');
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const publishSlots = async (req, res, next) => {
   try {
     const slots = await appointmentService.publishSlots(req.user, req.body.startsAt);
@@ -71,10 +80,13 @@ const createAppointment = async (req, res, next) => {
   }
 };
 
-const verifyAppointmentPayment = async (req, res, next) => {
+const cancelPatientAppointment = async (req, res, next) => {
   try {
-    const appointment = await appointmentService.verifyAppointmentPayment(req.user, req.body);
-    return ApiResponse.success(res, appointment, 'Payment verified; appointment awaits doctor confirmation');
+    const appointment = await appointmentService.cancelPatientAppointment(
+      req.user,
+      req.params.appointmentId
+    );
+    return ApiResponse.success(res, appointment, 'Appointment cancelled');
   } catch (error) {
     return next(error);
   }
@@ -103,8 +115,9 @@ const updateAppointmentStatus = async (req, res, next) => {
 };
 
 export {
-  cancelPendingAppointment,
+  cancelPatientAppointment,
   createAppointment,
+  getDoctorAvailability,
   getDoctors,
   getDoctorProfile,
   getDoctorSlots,
@@ -112,6 +125,6 @@ export {
   publishSlots,
   removeSlot,
   updateAppointmentStatus,
-  updateDoctorProfile,
-  verifyAppointmentPayment
+  updateDoctorAvailability,
+  updateDoctorProfile
 };
